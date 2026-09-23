@@ -1,19 +1,18 @@
 name: Build Matrixx GSI and Release
 
 on:
-  workflow_dispatch: # لتشغيل العملية يدوياً من تبويب Actions
+  workflow_dispatch:
 
 jobs:
   build-and-release:
     runs-on: ubuntu-22.04
     permissions:
-      contents: write # إعطاء الصلاحية لرفع المنتجات إلى قسم Releases
+      contents: write
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # تنظيف مساحة القرص في سيرفر GitHub لضمان عدم توقف البناء بسبب المساحة
       - name: Free Up Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
@@ -22,19 +21,16 @@ jobs:
           sudo rm -rf /usr/local/share/boost
           sudo docker image prune --all --force
 
-      # تثبيت الأدوات المطلوبة لبناء أندرويد
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf lib32ncurses5-dev lib32z1-dev liblibc6-dev-i386 libgl1-mesa-dev libxml2-utils xsltproc zip zlib1g-dev python3 python-is-python3 repo xz-utils
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev libxml2-utils xsltproc zip zlib1g-dev python3 python-is-python3 repo xz-utils
 
-      # إعداد إعدادات الهوية لـ Git
       - name: Configure Git
         run: |
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
 
-      # جلب الشفرة المصدرية لروم Matrixx
       - name: Initialize Repo and Sync
         run: |
           mkdir workspace
@@ -42,7 +38,6 @@ jobs:
           repo init -u https://github.com/Doze-off/Matrixx_treble.git -b 16.2 --depth=1
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
-      # بدء عملية بناء ملف النظام system.img
       - name: Build GSI Image
         run: |
           cd workspace
@@ -50,7 +45,6 @@ jobs:
           lunch matrixx_arm64_bgN-userdebug || lunch treble_arm64_bgN-userdebug
           make systemimage -j$(nproc --all)
 
-      # ضغط الملف وتقليل حجمه للتنزيل والرفع
       - name: Compress System Image
         run: |
           cd workspace/out/target/product/*
@@ -58,7 +52,6 @@ jobs:
             xz -z -k -8 system.img
           fi
 
-      # إنشاء Release جديد على GitHub ورفع ملف GSI إليه
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
@@ -67,7 +60,6 @@ jobs:
           body: |
             ## Matrixx GSI Treble Build
             - **Branch**: 16.2
-            - **Build Date**: ${{ github.event.repository.updated_at }}
             - **Status**: Successful Automated Build
           draft: false
           prerelease: false
